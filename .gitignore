@@ -1,0 +1,13 @@
+# Nada de lo que genera el laboratorio en la maquina auditada
+*.log
+backups/
+revertir-*.sh
+
+# Claves, jamas
+*.pem
+*.key
+id_*
+*.pub
+
+# Basura del sistema
+.DS_Store
