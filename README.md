@@ -88,9 +88,32 @@ fichero — todo para que una herramienta reconociera unas cadenas de texto.
 Un informe que dice "quedan 17 hallazgos" no vale nada. Lo que vale es saber
 cuáles son reales.
 
+### Se miró desde fuera, y el resultado no fue el esperado
+
+Las ocho primeras fases comprueban el sistema desde dentro. La novena lo escanea
+desde otra máquina, y ahí apareció algo que ninguna comprobación interna podía
+revelar:
+
+| Sondeo desde el Mac | Resultado |
+|---|---|
+| 10.000 puertos a 2.000 paq/s | **10.000 filtrados. Ninguno abierto** |
+| 1 puerto (`-p 2222`), una sonda | **2222/tcp open** `syn-ack` |
+
+Misma máquina, mismas reglas, noventa segundos de diferencia. La causa es el
+`limit rate 30/minute burst 10 packets` de la regla de SSH: cuando se supera el
+límite la regla deja de coincidir y el paquete cae hasta el descarte final, así
+que **un escáner rápido no encuentra el servicio**.
+
+Ese efecto no se diseñó — la regla estaba para frenar la fuerza bruta. Y no es
+seguridad por oscuridad: un atacante paciente lo encuentra en medio segundo.
+Lo que sí tiene es un coste operativo que conviene nombrar, porque el
+inventario de activos propio también se lo pierde.
+[`docs/validacion-externa.md`](docs/validacion-externa.md) lo desarrolla, junto
+con la prueba de carga y dos tropiezos instructivos con el propio nmap.
+
 ---
 
-## Las ocho fases
+## Las nueve fases
 
 | Fase | Qué hace | Hallazgos de Lynis |
 |---|---|---|
@@ -102,6 +125,7 @@ cuáles son reales.
 | **6** · Auditoría | `auditd`, `fail2ban`, AIDE, ClamAV, `sysstat`, `acct`, `debsums`, avisos legales | `ACCT-9622/9626/9628`, `DEB-0880/0811`, `FINT-4350`, `HRDN-7230`, `PKGS-7370/7394` |
 | **7** · Medición | Repite la auditoría con la misma versión de Lynis y compara: resueltos / pendientes / nuevos | — |
 | **8** · Corrección | Arregla las regresiones que introdujo la fase 6. Inventario de puertos antes/después | `MAIL-8818`, `MAIL-8820` |
+| **9** · Validación | Resiliencia bajo carga con `stress-ng` comprobando los servicios *durante* la prueba, y escaneo perimetral desde otra máquina | — |
 
 Cada fase, sin excepción: copia de seguridad con marca de tiempo → aplicación →
 **verificación del estado efectivo** → script de reversión.
@@ -152,7 +176,8 @@ arrancaron sin quejarse.
 │   ├── fase5-kernel.sh          29 parámetros de sysctl
 │   ├── fase6-auditoria.sh       auditd, fail2ban, AIDE, ClamAV
 │   ├── fase7-medicion.sh        medición final y comparativa
-│   └── fase8-correccion.sh      corrección de regresiones
+│   ├── fase8-correccion.sh      corrección de regresiones
+│   └── fase9-validacion.sh      carga + perímetro
 ├── reports/
 │   ├── 01-baseline.dat                      índice 61
 │   ├── 02-con-regresion.dat                 índice 82, con el puerto 25 abierto
@@ -162,7 +187,8 @@ arrancaron sin quejarse.
 └── docs/
     ├── entorno.md               sistema, acceso y cómo reproducirlo
     ├── fallos-encontrados.md    los seis fallos, en detalle
-    └── falsos-positivos.md      los cuatro hallazgos que no se arreglaron
+    ├── falsos-positivos.md      los cinco hallazgos que no se arreglaron
+    └── validacion-externa.md    carga, perímetro y lo que enseñó el escáner
 ```
 
 Los tres informes `.dat` son la salida cruda de Lynis. Se pueden comparar con

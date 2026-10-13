@@ -1,0 +1,18 @@
+Starting Nmap 7.991 ( https://nmap.org ) at 2026-10-13 11:04 +0200
+Initiating ARP Ping Scan at 11:04
+Scanning 192.168.0.10 [1 port]
+Completed ARP Ping Scan at 11:04, 0.01s elapsed (1 total hosts)
+Initiating Parallel DNS resolution of 1 host. at 11:04
+Completed Parallel DNS resolution of 1 host. at 11:04, 0.50s elapsed
+Initiating SYN Stealth Scan at 11:04
+Scanning 192.168.0.10 [10000 ports]
+Completed SYN Stealth Scan at 11:04, 10.19s elapsed (10000 total ports)
+Nmap scan report for 192.168.0.10
+Host is up, received arp-response (0.00025s latency).
+All 10000 scanned ports on 192.168.0.10 are in ignored states.
+Not shown: 10000 filtered tcp ports (no-response)
+MAC Address: 00:0C:29:00:00:00 (VMware)
+
+Read data files from: /opt/homebrew/bin/../share/nmap
+Nmap done: 1 IP address (1 host up) scanned in 10.73 seconds
+           Raw packets sent: 20001 (880.028KB) | Rcvd: 1 (28B)
