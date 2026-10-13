@@ -13,11 +13,11 @@
 Máquina virtual (VMware Fusion) sobre macOS en Apple Silicon. El hipervisor es
 indiferente: nada de lo que hay aquí depende de él.
 
-**La arquitectura arm64 sí importa en un punto**: los paquetes vienen de
-`ports.ubuntu.com` en vez de `archive.ubuntu.com`, cosa que se nota al leer la
-traza de APT y al revisar `ubuntu.sources`.
+La arquitectura arm64 sí importa en un punto: los paquetes vienen de
+`ports.ubuntu.com` en vez de `archive.ubuntu.com`, cosa que se nota al leer la traza
+de APT y al revisar `ubuntu.sources`.
 
-## Cómo se trabajó
+## Cómo trabajé
 
 ```
    Mac (cliente)                        VM Ubuntu (sistema auditado)
@@ -27,25 +27,25 @@ traza de APT y al revisar `ubuntu.sources`.
                              ◀─ssh──▶   puerto 2222, solo clave
 ```
 
-Todo el trabajo se hizo por SSH desde el Mac, nunca desde la consola de la VM.
-No es un detalle cosmético: **obliga a que cada fase deje el acceso remoto
-funcionando**. Un bastionado que solo se puede aplicar con la consola delante
-no sirve para un servidor real.
+Hice todo el trabajo por SSH desde el Mac, nunca desde la consola de la VM. No es un
+detalle cosmético: obliga a que cada fase deje el acceso remoto funcionando. Un
+bastionado que solo se puede aplicar con la consola delante no sirve para un servidor
+real.
 
 De ahí salen dos decisiones del laboratorio:
 
-- La fase 3 verifica la configuración efectiva de SSH con `sshd -T` antes de
-  recargar el servicio.
+- La fase 3 verifica la configuración efectiva de SSH con `sshd -T` antes de recargar
+  el servicio.
 - La fase 4 aplica las reglas del cortafuegos con un temporizador de reversión
-  automática de 90 segundos (`systemd-run --on-active=90`). Si las reglas te
-  dejan fuera, el sistema las retira solo y recuperas el acceso sin tocar nada.
+  automática de 90 segundos (`systemd-run --on-active=90`). Si las reglas dejan
+  fuera, el sistema las retira solo y el acceso vuelve sin tocar nada.
 
 ## Acceso
 
 Tras la fase 3:
 
-- Puerto **2222** (gobernado por `ssh.socket`, no por `sshd_config`)
-- **Solo clave pública**; autenticación por contraseña desactivada
+- Puerto 2222 (gobernado por `ssh.socket`, no por `sshd_config`)
+- Solo clave pública; autenticación por contraseña desactivada
 - Acceso directo de `root` desactivado
 - Alias en `~/.ssh/config` del Mac:
 
@@ -57,8 +57,8 @@ Host lab
     IdentityFile ~/.ssh/hardening-lab
 ```
 
-Con eso, `ssh lab` y `scp lab:/ruta/fichero .` funcionan sin argumentos.
-(`scp` usa `-P` mayúscula para el puerto, no `-p`. Costó un rato.)
+Con eso, `ssh lab` y `scp lab:/ruta/fichero .` funcionan sin argumentos. (`scp` usa
+`-P` mayúscula para el puerto, no `-p`. Me costó un rato darme cuenta.)
 
 ## Rutas
 
@@ -69,32 +69,33 @@ Con eso, `ssh lab` y `scp lab:/ruta/fichero .` funcionan sin argumentos.
 | `/opt/hardening-lab/revertir-faseN.sh` | Script de reversión generado por cada fase |
 | `/opt/hardening-lab/faseN.log` | Registro completo de la ejecución de cada fase |
 
-Cada fase guarda copia de lo que toca **antes** de tocarlo y genera su propio
-script de reversión. Ninguna fase depende de otra para poder deshacerse.
+Cada fase guarda copia de lo que toca antes de tocarlo y genera su propio script de
+reversión. Ninguna fase depende de otra para poder deshacerse.
 
 ## Reproducirlo
 
 1. Ubuntu Server 24.04 LTS recién instalado, con `openssh-server`.
 2. Copiar `scripts/` a la máquina.
-3. Ejecutar las fases en orden, **una a una**, leyendo la salida de cada una
-   antes de seguir:
+3. Ejecutar las fases en orden, una a una, leyendo la salida de cada una antes de
+   seguir:
 
 ```bash
 sudo bash fase1-baseline.sh      # mide: no toca nada
 sudo bash fase2-identidades.sh
-sudo bash fase3-ssh.sh           # cambia el puerto a 2222: no cierres la sesión
-sudo bash fase4-firewall.sh      # 90 segundos para confirmar que sigues dentro
+sudo bash fase3-ssh.sh           # cambia el puerto a 2222: no cerrar la sesión
+sudo bash fase4-firewall.sh      # 90 segundos para confirmar que el acceso sigue
 sudo bash fase5-kernel.sh
 sudo bash fase6-auditoria.sh
 sudo bash fase7-medicion.sh      # vuelve a medir y compara
 sudo bash fase8-correccion.sh    # corrige las regresiones de la fase 6
-sudo bash fase7-medicion.sh      # y se mide otra vez
+sudo bash fase7-medicion.sh      # y mide otra vez
+sudo bash fase9-validacion.sh    # resiliencia bajo carga + escaneo externo
 ```
 
-**No las encadenes en un solo script.** Tres de los seis fallos documentados en
-[`fallos-encontrados.md`](fallos-encontrados.md) se detectaron leyendo la
-verificación de una fase antes de lanzar la siguiente. En una ejecución
-desatendida habrían pasado desapercibidos.
+Conviene no encadenarlas en un solo script: tres de los seis fallos documentados en
+[`fallos-encontrados.md`](fallos-encontrados.md) los detecté leyendo la verificación
+de una fase antes de lanzar la siguiente, y en una ejecución desatendida habrían
+pasado desapercibidos.
 
 ### Variables
 
@@ -106,6 +107,6 @@ desatendida habrían pasado desapercibidos.
 
 ## Advertencia
 
-Esto es un laboratorio. Los scripts cambian la configuración de SSH, el
-cortafuegos y el núcleo. **No los ejecutes sobre nada que te importe** sin
-leerlos antes y sin tener forma de acceder por consola.
+Es un laboratorio. Los scripts cambian la configuración de SSH, el cortafuegos y el
+núcleo. No conviene ejecutarlos sobre nada que importe sin leerlos antes y sin tener
+forma de acceder por consola.

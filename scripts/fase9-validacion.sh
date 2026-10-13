@@ -182,7 +182,7 @@ $(sed 's/^/     /' "$DIR/puertos-internos.txt")
 
      nmap -Pn -p- -T4 --reason ${IP:-IP_DE_LA_VM} | tee ~/hardening-lab/reports/nmap-externo.txt
 
-  -Pn  no descarta el objetivo si no responde al ping: nuestras reglas limitan
+  -Pn  no descarta el objetivo si no responde al ping: las reglas limitan
        ICMP, así que sin esto nmap podría darlo por caído y no escanear nada.
   -p-  los 65535 puertos. Escanear solo los 1000 habituales no demuestra que
        el resto esté cerrado, que es justo lo que queremos demostrar.

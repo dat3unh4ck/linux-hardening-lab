@@ -42,7 +42,7 @@ echo
 echo "[1/6] Comprobaciones previas"
 # ---------------------------------------------------------------------------
 
-# Que el puerto que vamos a permitir sea REALMENTE el que escucha. Permitir un
+# Que el puerto que se va a permitir sea REALMENTE el que escucha. Permitir un
 # puerto equivocado con política drop es la forma más directa de quedarse fuera.
 if ss -tln | grep -qE "[:.]${PUERTO_SSH}\b"; then
   echo "  OK: hay un servicio escuchando en ${PUERTO_SSH}"
@@ -93,7 +93,7 @@ table inet filter {
     chain input {
         type filter hook input priority filter; policy drop;
 
-        # 1. Tráfico de vuelta de conexiones que hemos iniciado nosotros.
+        # 1. Tráfico de vuelta de conexiones iniciadas por la propia máquina.
         #    Va primero porque es la mayoría del tráfico: cuanto antes
         #    coincida, menos reglas se evalúan por paquete.
         ct state established,related accept

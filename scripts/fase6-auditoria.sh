@@ -150,7 +150,7 @@ apt-get install -y -qq fail2ban >/dev/null
 
 # Detalle crítico de integración: por defecto fail2ban banea con iptables. Como
 # el cortafuegos de la fase 4 es nftables, esas reglas irían por un camino
-# distinto al nuestro. Hay que decirle que use nftables explícitamente.
+# distinto del que usa este laboratorio. Hay que decirle que use nftables explícitamente.
 if [[ -f /etc/fail2ban/action.d/nftables.conf ]]; then
   ACCION='nftables[type=multiport]'
 elif [[ -f /etc/fail2ban/action.d/nftables-multiport.conf ]]; then
