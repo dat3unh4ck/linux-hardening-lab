@@ -157,11 +157,47 @@ EOF
     fi
   else
     echo "  directiva encontrada: ${CKSUM}"
-    if echo "$CKSUM" | grep -qiE 'sha(256|512)'; then
-      echo "  -> ya usa resúmenes fuertes; el hallazgo de Lynis es un falso positivo"
+    VALOR=$(echo "$CKSUM" | cut -d= -f2- | tr -d '[:space:]')
+
+    # El valor puede ser una lista de algoritmos ("sha256+sha512") o un GRUPO
+    # COMPUESTO interno de AIDE ("H"), que no está definido en ningún fichero y
+    # por eso no se encuentra buscándolo en /etc/aide/. Aquí está la causa del
+    # falso positivo FINT-4402: Lynis busca la cadena literal "sha256" en
+    # aide.conf, se encuentra "Checksums = H" y no sabe resolver el grupo.
+    # 'aide --version' sí los lista, en "Default compound groups".
+    EXPANDIDO=$(aide --version 2>&1 \
+                | grep -E "^[[:space:]]*${VALOR}:[[:space:]]" \
+                | head -1 | cut -d: -f2- | tr -d '[:space:]' || true)
+    if [[ -n "$EXPANDIDO" ]]; then
+      echo "  '${VALOR}' es un grupo compuesto que expande a:"
+      echo "     ${EXPANDIDO}"
+    fi
+    EFECTIVO="${EXPANDIDO:-$VALOR}"
+
+    if echo "$EFECTIVO" | grep -qiE 'sha(256|512)'; then
+      echo "  -> la configuración SÍ incluye sha256/sha512"
     else
-      echo "  -> resumen DÉBIL. Revísalo a mano antes de tocar nada:"
-      echo "     grep -rn 'Checksums' /etc/aide/"
+      echo "  -> la configuración NO incluye sha256/sha512. Revísalo a mano:"
+      echo "     grep -rn 'Checksums' /etc/aide/ && aide --version"
+    fi
+
+    # Y lo que de verdad manda no es la configuración sino lo que la base de
+    # datos almacenó: la cabecera @@db_spec lista las columnas calculadas para
+    # cada fichero. La base viene comprimida con gzip, de ahí el zcat: un grep
+    # plano sobre ella no devuelve nada y despista.
+    DBSPEC=$(zcat -f /var/lib/aide/aide.db 2>/dev/null | grep -m1 '^@@db_spec' || true)
+    if [[ -z "$DBSPEC" ]]; then
+      echo "  -> no hay base de datos legible en /var/lib/aide/aide.db"
+      echo "     (si solo existe aide.db.new, la línea base nunca se promovió"
+      echo "      a definitiva y AIDE no está detectando nada: sudo aideinit)"
+    elif echo "$DBSPEC" | grep -qE '(^|[[:space:]])sha(256|512)([[:space:]]|$)'; then
+      echo "  -> CONFIRMADO: la base almacena sha256/sha512 por fichero."
+      echo "     FINT-4402 es un falso positivo; no hay nada que corregir."
+      echo "     (que la lista incluya md5 no debilita nada: AIDE exige que"
+      echo "      coincidan TODOS los resúmenes, así que manda el más fuerte)"
+    else
+      echo "  -> ATENCIÓN: la base NO almacena sha256/sha512. El hallazgo es real."
+      echo "     Corrige la configuración y regenera la base: sudo aideinit -y -f"
     fi
   fi
 else

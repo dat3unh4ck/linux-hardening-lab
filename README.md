@@ -76,10 +76,14 @@ fase 6.
 
 ### Se distingue entre hallazgo real y limitación de la herramienta
 
-De los cinco hallazgos que quedaron al final, **cuatro son falsos positivos** y
-están demostrados uno por uno. Perseguirlos habría significado degradar una
-configuración correcta: volver al puerto 22, escribir el aviso legal en inglés,
-duplicar las reglas del cortafuegos en iptables.
+De los seis hallazgos que quedaron al final, **cinco son falsos positivos** y
+están demostrados uno por uno. El sexto era real, y es el del puerto 25.
+
+Perseguir los cinco habría significado degradar una configuración correcta:
+volver al puerto 22, escribir el aviso legal en inglés, duplicar las reglas del
+cortafuegos en iptables, volver a `sources.list` en una distribución que ya no
+lo usa, y reducir de once a dos los algoritmos con los que AIDE firma cada
+fichero — todo para que una herramienta reconociera unas cadenas de texto.
 
 Un informe que dice "quedan 17 hallazgos" no vale nada. Lo que vale es saber
 cuáles son reales.
@@ -189,10 +193,6 @@ las fases **una a una**, leyendo la verificación de cada una antes de seguir.
 
 ## Pendiente
 
-- **`FINT-4402`** — `Checksums = H` en AIDE. `H` no está definido en
-  `/etc/aide/`, así que es un grupo interno. Falta confirmar a qué se expande
-  leyendo la cabecera `@@db_spec` de la base de datos. Es el único hallazgo sin
-  veredicto, y se deja abierto en vez de darlo por bueno.
 - **Aviso legal bilingüe** — el actual está en español y Lynis solo reconoce
   palabras en inglés. Un banner en los dos idiomas cumpliría ambas cosas.
 - **Particiones separadas** (`/home`, `/tmp`, `/var`) — se decide al instalar;

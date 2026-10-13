@@ -1,12 +1,18 @@
 # Hallazgos que no se arreglaron, y por qué
 
-Al terminar quedaban 17 sugerencias y 2 avisos. Algunos son limitaciones de la
-herramienta, no controles sin aplicar, y **arreglarlos habría significado
-empeorar la configuración para contentar a un script**.
+Al terminar quedaban 17 sugerencias y 2 avisos. **Cinco de ellos son
+limitaciones de la herramienta, no controles sin aplicar**, y arreglarlos habría
+significado empeorar la configuración para contentar a un script.
 
-Decidir eso —y poder demostrarlo— es parte del trabajo. Un informe de auditoría
-que solo dice "quedan 17 hallazgos" no vale nada; lo que vale es saber cuáles
-son reales.
+Los cinco están demostrados aquí uno por uno, con la comprobación que lo prueba
+en cada caso. Decidir esto —y poder justificarlo— es parte del trabajo: un
+informe de auditoría que solo dice "quedan 17 hallazgos" no vale nada; lo que
+vale es saber cuáles son reales.
+
+Los cinco comparten el mismo mecanismo: **Lynis busca una cadena de texto en un
+fichero de configuración, y el sistema resuelve ese ajuste en otro sitio** —en
+una unidad de systemd, en otro idioma, en otra pila de filtrado, en otro formato
+de fichero, o en un grupo interno de la propia herramienta auditada.
 
 Comprobado todo contra Lynis **3.0.9** sobre **Ubuntu 24.04.5 LTS**. En
 versiones posteriores alguno de estos puede estar ya resuelto.
@@ -169,38 +175,58 @@ herramienta sería ir hacia atrás en la propia distribución.
 
 ## FINT-4402 — "Use SHA256 or SHA512 to create checksums in AIDE"
 
-> **Estado: sin confirmar.** Es el único hallazgo pendiente de verificar, y se
-> deja aquí abierto en vez de darlo por bueno.
+**Lo que dice el informe.** AIDE estaría usando resúmenes criptográficos
+débiles.
 
-**Lo que se sabe.** La configuración dice:
+**Lo que ve Lynis.** La configuración dice exactamente esto:
 
 ```
 /etc/aide/aide.conf:41:Checksums = H
 ```
 
-y `H` **no está definido en ningún fichero de `/etc/aide/`**, lo que indica que
-es un grupo interno de AIDE. El binario es 0.18.6 compilado con `use Mhash: yes`.
+Ni `sha256` ni `sha512` aparecen como texto. Lynis busca esas cadenas
+literales, no las encuentra y avisa.
 
-**La hipótesis.** `H` se expande al conjunto de algoritmos compilados, que
-incluiría sha256 y sha512 junto a otros más antiguos. Si fuera así, no sería
-una debilidad: **AIDE exige que coincidan todos los resúmenes a la vez**, de
-modo que la fortaleza del conjunto es la del algoritmo más fuerte, no la del
-más débil. Falsificar un fichero exigiría una colisión simultánea en sha512.
+**Lo que pasa de verdad.** `H` no está definido en ningún fichero de
+`/etc/aide/` porque es un **grupo compuesto interno** de AIDE. El propio
+binario lo declara:
 
-**Cómo se confirma.** La cabecera de la base de datos lista las columnas que
-AIDE calculó y almacenó de verdad, que es el dato que manda:
-
-```bash
-sudo grep -m1 '@@db_spec' /var/lib/aide/aide.db
+```
+$ aide --version
+Default compound groups:
+  H: md5+sha1+rmd160+tiger+crc32+haval+gost+crc32b+sha256+sha512+whirlpool
 ```
 
-Si ahí aparecen `sha256` y `sha512`, es un falso positivo más y no hay nada que
-hacer. Si solo aparecen `md5` y `sha1`, el hallazgo es real y serio: un atacante
-podría modificar un binario conservando el resumen, que es justo lo que AIDE
-existe para detectar.
+Y no se queda en la configuración: la cabecera de la base de datos lista las
+columnas que AIDE **calculó y almacenó** para cada fichero, que es el dato que
+manda. La base son 26 MB comprimidos con gzip, así que hay que leerla con
+`zcat` —un `grep` plano no devuelve nada, que es justo lo que despistó al
+principio—:
 
-La fase 8 incluye el arreglo, pero **no lo aplica a ciegas**: comprueba primero
-qué hay configurado y avisa de que hace falta revisarlo a mano.
+```bash
+$ sudo zcat -f /var/lib/aide/aide.db | grep -m1 '@@db_spec'
+@@db_spec name lname perm uid gid size ctime mtime inode bcount lcount
+          md5 sha1 rmd160 tiger crc32 haval gost crc32b attr acl
+          sha256 sha512 selinux xattrs whirlpool e2fsattrs capabilities
+```
+
+`sha256` y `sha512` están ahí.
+
+**Por qué no es una debilidad que la lista incluya md5.** AIDE exige que
+coincidan **todos** los resúmenes a la vez, de modo que la fortaleza del
+conjunto es la del algoritmo más fuerte, no la del más débil. Modificar un
+fichero sin que AIDE lo detecte exigiría una colisión simultánea en sha512.
+
+**Por qué no se arregla.** No hay nada que arreglar. La única forma de
+silenciarlo sería escribir `Checksums = sha256+sha512` en vez de `H`, lo que
+*reduciría* el número de algoritmos comprobados para que una herramienta
+reconozca una cadena de texto.
+
+La fase 8 incluye el arreglo por si hiciera falta, pero **no lo aplica a
+ciegas**: comprueba primero qué hay configurado y, al encontrar un grupo que no
+sabe resolver, se detiene y avisa de que hay que revisarlo a mano. Que se
+detuviera es lo que permitió llegar hasta aquí en vez de degradar una
+configuración correcta.
 
 ---
 
